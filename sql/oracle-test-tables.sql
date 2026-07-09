@@ -91,7 +91,14 @@ CREATE TABLE department_fuel (
     fuel_type_code          VARCHAR2(50),
     fuel_type               VARCHAR2(50),
     fuel_volume             NUMBER(15,2),
-    total_ratio             NUMBER(8,6),
+    total_ratio             NUMBER(8,6)
+);
+
+CREATE TABLE department_energy (
+    year                    NUMBER(4),
+    month                   NUMBER(2),
+    department              VARCHAR2(100),
+    fuel_volume             NUMBER(15,2),
     energy_type             VARCHAR2(50),
     energy_method           VARCHAR2(50),
     energy                  NUMBER(15,4),

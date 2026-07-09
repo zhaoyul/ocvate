@@ -116,6 +116,10 @@
   (try (ok (transform-rows (db/get-department-fuel)))
        (catch Exception e (err (.getMessage e)))))
 
+(defn api-department-energy [_]
+  (try (ok (transform-rows (db/get-department-energy)))
+       (catch Exception e (err (.getMessage e)))))
+
 (defn api-vehicle-fuel [_]
   (try (ok (transform-rows (db/get-vehicle-fuel)))
        (catch Exception e (err (.getMessage e)))))
@@ -173,6 +177,7 @@
   (GET "/api/repairs/department"        [] api-repairs-department)
   (GET "/api/fuel/monthly"              [] api-monthly-fuel)
   (GET "/api/fuel/department"           [] api-department-fuel)
+  (GET "/api/energy/department"          [] api-department-energy)
   (GET "/api/fuel/vehicle"              [] api-vehicle-fuel)
 
   ;; 静态资源

@@ -3080,7 +3080,8 @@ function renderDepartmentFuel() {
     fuelVolume: formatNumber(row.fuelVolume, 1),
     totalRatio: formatPercent(row.totalRatio, 2)
   })));
-  renderTable("#departmentEnergyTable", ["部门", "加油量（升）", "能源类型", "能耗计算方式", "能耗", "环比", "同比"], rows.map((row) => ({
+  const energyRows = filterDepartmentFuel(state.data.departmentEnergy, state.filters.departmentFuelYear, state.filters.departmentFuelMonth);
+  renderTable("#departmentEnergyTable", ["部门", "加油量（升）", "能源类型", "能耗计算方式", "能耗", "环比", "同比"], energyRows.map((row) => ({
     department: row.department,
     fuelVolume: formatNumber(row.fuelVolume, 1),
     energyType: row.energyType,
@@ -3093,7 +3094,7 @@ function renderDepartmentFuel() {
     filename: "各部门车辆油耗统计表.xlsx",
     sheets: {
       "油耗统计": [["部门", "燃料类型", "加油量（升）", "总占比"], ...rows.map((row) => [row.department, row.fuelType, row.fuelVolume, formatPercent(row.totalRatio, 2)])],
-      "能耗统计": [["部门", "加油量（升）", "能源类型", "能耗计算方式", "能耗", "环比", "同比"], ...rows.map((row) => [row.department, row.fuelVolume, row.energyType, row.energyMethod, row.energy, formatPercent(row.mom, 2), formatPercent(row.yoy, 2)])]
+      "能耗统计": [["部门", "加油量（升）", "能源类型", "能耗计算方式", "能耗", "环比", "同比"], ...energyRows.map((row) => [row.department, row.fuelVolume, row.energyType, row.energyMethod, row.energy, formatPercent(row.mom, 2), formatPercent(row.yoy, 2)])]
     }
   });
 }

@@ -143,16 +143,27 @@ SELECT
   fuel_type_code          AS fuel_type_code,
   fuel_type               AS fuel_type,
   fuel_volume             AS fuel_volume,
-  total_ratio             AS total_ratio,
+  total_ratio             AS total_ratio
+FROM your_department_fuel_table;  -- ← 替换为实际表名
+
+-- ============================================================
+-- 11. 部门能耗（前端: departmentEnergy，各部门车辆能耗统计表）
+-- ============================================================
+CREATE OR REPLACE VIEW department_energy AS
+SELECT
+  year                    AS year,
+  month                   AS month,
+  department              AS department,
+  fuel_volume             AS fuel_volume,
   energy_type             AS energy_type,
   energy_method           AS energy_method,
   energy                  AS energy,
   mom                     AS mom,
   yoy                     AS yoy
-FROM your_department_fuel_table;  -- ← 替换为实际表名
+FROM your_department_energy_table;  -- ← 替换为实际表名
 
 -- ============================================================
--- 11. 单车油耗（前端: vehicleFuel）
+-- 12. 单车油耗（前端: vehicleFuel）
 -- ============================================================
 CREATE OR REPLACE VIEW vehicle_fuel AS
 SELECT
