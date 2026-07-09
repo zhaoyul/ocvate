@@ -12,5 +12,8 @@
 # SQLite 数据库（自动生成）
 /data/
 
+# Java 运行时（手动放置，见 deploy/setup-java.bat）
+/runtime/
+
 # 原始 HTML 文件（已复制到 resources/public/index.html）
 企业资产图表分析-单文件版6.22.html
