@@ -1,0 +1,13 @@
+/target
+/.hg
+*.class
+*.jar
+*.log
+/config.local.edn
+/config.override.edn
+/.calva
+/.cpcache
+/.lsp
+
+# 原始 HTML 文件（已复制到 resources/public/index.html）
+企业资产图表分析-单文件版6.22.html
