@@ -87,7 +87,7 @@
    "CREATE TABLE IF NOT EXISTS repairs_single_device (year INTEGER,month INTEGER,department_code TEXT,department TEXT,asset_code TEXT,equipment_name TEXT,plate_no TEXT,total_cost REAL)"
    "CREATE TABLE IF NOT EXISTS repairs_department (year INTEGER,month INTEGER,department_code TEXT,department TEXT,total_cost REAL,repair_count INTEGER)"
    "CREATE TABLE IF NOT EXISTS monthly_fuel (year INTEGER,month INTEGER,fuel_volume REAL)"
-   "CREATE TABLE IF NOT EXISTS department_fuel (year INTEGER,month INTEGER,department TEXT,fuel_type TEXT,fuel_volume REAL,total_ratio REAL,energy_type TEXT,energy_method TEXT,energy REAL,mom REAL,yoy REAL)"
+   "CREATE TABLE IF NOT EXISTS department_fuel (year INTEGER,month INTEGER,department_code TEXT,department TEXT,fuel_type_code TEXT,fuel_type TEXT,fuel_volume REAL,total_ratio REAL,energy_type TEXT,energy_method TEXT,energy REAL,mom REAL,yoy REAL)"
    "CREATE TABLE IF NOT EXISTS vehicle_fuel (year INTEGER,month INTEGER,asset_code TEXT,equipment_name TEXT,plate_no TEXT,fuel_volume REAL)"])
 
 (def sqlite-init-data
@@ -214,14 +214,14 @@
         "(2026,5,17500),(2026,6,18120),(2025,1,15030),(2025,2,14880)")
    (str "DELETE FROM department_fuel")
    (str "INSERT INTO department_fuel VALUES "
-        "(2026,6,'飞行区管理部','汽油',6040.7,0.3445,'汽油','百公里',13.77,0.0412,0.0412),"
-        "(2026,6,'动力能源部','柴油',2450.4,0.1398,'柴油','台班',11.22,-0.018,0.033),"
-        "(2026,6,'航站区管理部','汽油',3100.2,0.1769,'汽油','百公里',12.91,0.021,0.052),"
-        "(2026,6,'公共区管理部','柴油',2890.1,0.1649,'柴油','台班',10.44,0.038,-0.014),"
-        "(2026,6,'机务维修公司','柴油',1453.5,0.0829,'柴油','台班',9.66,0.012,0.027),"
-        "(2026,6,'办公室','汽油',1736.0,0.0991,'汽油','百公里',8.92,-0.011,0.019),"
-        "(2026,5,'飞行区管理部','汽油',5810.2,0.331,'汽油','百公里',13.14,0.018,0.031),"
-        "(2026,5,'动力能源部','柴油',2310.9,0.132,'柴油','台班',10.98,-0.009,0.023)")
+        "(2026,6,'D001','飞行区管理部','GAS','汽油',6040.7,0.3445,'汽油','百公里',13.77,0.0412,0.0412),"
+        "(2026,6,'D002','动力能源部','DIE','柴油',2450.4,0.1398,'柴油','台班',11.22,-0.018,0.033),"
+        "(2026,6,'D003','航站区管理部','GAS','汽油',3100.2,0.1769,'汽油','百公里',12.91,0.021,0.052),"
+        "(2026,6,'D004','公共区管理部','DIE','柴油',2890.1,0.1649,'柴油','台班',10.44,0.038,-0.014),"
+        "(2026,6,'D005','机务维修公司','DIE','柴油',1453.5,0.0829,'柴油','台班',9.66,0.012,0.027),"
+        "(2026,6,'D006','办公室','GAS','汽油',1736.0,0.0991,'汽油','百公里',8.92,-0.011,0.019),"
+        "(2026,5,'D001','飞行区管理部','GAS','汽油',5810.2,0.331,'汽油','百公里',13.14,0.018,0.031),"
+        "(2026,5,'D002','动力能源部','DIE','柴油',2310.9,0.132,'柴油','台班',10.98,-0.009,0.023)")
    (str "DELETE FROM vehicle_fuel")
    (str "INSERT INTO vehicle_fuel (year, month, asset_code, equipment_name, plate_no, fuel_volume) VALUES "
         "(2026,1,'CAR-001','通勤大巴','鲁B-A123',188),(2026,2,'CAR-001','通勤大巴','鲁B-A123',195),"

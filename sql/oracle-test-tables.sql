@@ -86,7 +86,9 @@ CREATE TABLE monthly_fuel (
 CREATE TABLE department_fuel (
     year                    NUMBER(4),
     month                   NUMBER(2),
+    department_code         VARCHAR2(20),
     department              VARCHAR2(100),
+    fuel_type_code          VARCHAR2(50),
     fuel_type               VARCHAR2(50),
     fuel_volume             NUMBER(15,2),
     total_ratio             NUMBER(8,6),
