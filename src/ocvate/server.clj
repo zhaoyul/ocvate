@@ -16,10 +16,10 @@
 ;; ──────────────────────────────────────────────────────────────────────
 
 (defn- snake->camel
-  "将 snake_case 关键字转为 camelCase 字符串。用来处理 SQLite 返回的列名。"
+  "将 snake_case 关键字转为 camelCase 字符串。用来处理 SQLite/Oracle 返回的列名。\n   Oracle 可能返回大写下划线 key，先统一转小写再转换。"
   [s]
   (if (keyword? s)
-    (let [n (name s)]
+    (let [n (-> s name clojure.string/lower-case)]
       (->> (clojure.string/split n #"_")
            (map-indexed (fn [i part] (if (zero? i) part (clojure.string/capitalize part))))
            (clojure.string/join)))
