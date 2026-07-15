@@ -59,7 +59,7 @@
   "通过 key 校验后写入的会话 Cookie 值。"
   "ocvate-authorized") (defn- authorized? [req]
   (= (get-in req [:cookies "ocvate_access" :value]) access-cookie)) (defn- access-gate
-  "要求页面和 API 先通过固定 key 校验；成功后只清除 URL 中的 key。"
+  "生产环境要求固定 key；SQLite 开发环境直接放行。成功后只清除 URL 中的 key。"
   [handler]
   (fn [req]
     (let [uri (or (:uri req) "/")
@@ -70,10 +70,12 @@
           redirect-uri (if (seq query-without-key)
                          (str uri "?" query-without-key)
                          uri)
+          access-enabled? (= "oracle" (:dbtype (cfg/db-config)))
           health? (= uri "/api/health")
           page-entry? (and (= supplied-key access-key)
                            (not (clojure.string/starts-with? uri "/api/")))]
       (cond
+        (not access-enabled?) (handler req)
         (authorized? req) (handler req)
         health? (handler req)
         page-entry? (-> (resp/redirect redirect-uri)

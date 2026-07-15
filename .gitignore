@@ -9,6 +9,13 @@
 /.cpcache
 /.lsp
 
+# Clojure 静态检查缓存
+/.clj-kondo/
+
+# 构建和部署产物
+/dist/
+*.zip
+
 # SQLite 数据库（自动生成）
 /data/
 
