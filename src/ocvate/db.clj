@@ -97,7 +97,7 @@
                        "fixed_code" "maint_dept" "unit" "model" "supplier" "brand" "source" "equip_value"
                        "alloc_value" "asset_value" "operate_date" "handover_time" "remark"]
                       "create_time DESC"
-                      [["use_dept" (not-empty department)]]))
+                      [["TRIM(dept_desc)" (not-empty department)]]))
 
 (defn get-asset-inventory-details [year]
   (query-asset-detail :assetInventory

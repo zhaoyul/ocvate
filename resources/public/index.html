@@ -541,6 +541,109 @@
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
     }
 
+    .searchable-select {
+      position: relative;
+      display: inline-block;
+      min-width: 120px;
+    }
+
+    .searchable-select .native-select {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .select-search-input {
+      width: 100%;
+      min-height: 32px;
+      padding: 0 30px 0 10px;
+      color: var(--text);
+      background: var(--panel-3);
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      outline: none;
+      cursor: text;
+      transition: border 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .select-search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .searchable-select::after {
+      content: "⌄";
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      color: var(--muted);
+      pointer-events: none;
+      transition: transform 160ms ease;
+    }
+
+    .searchable-select.open::after {
+      transform: rotate(180deg);
+    }
+
+    .searchable-select.open .select-search-input,
+    .select-search-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+    }
+
+    .select-search-list {
+      position: absolute;
+      z-index: 40;
+      top: calc(100% + 5px);
+      left: 0;
+      right: 0;
+      display: none;
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 4px;
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      background: rgba(15, 23, 42, 0.98);
+      box-shadow: 0 14px 26px rgba(0, 0, 0, 0.34);
+    }
+
+    .searchable-select.open .select-search-list {
+      display: grid;
+      gap: 2px;
+    }
+
+    .select-search-option,
+    .select-search-empty {
+      min-height: 30px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 20px;
+      text-align: left;
+    }
+
+    .select-search-option {
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .select-search-option:hover,
+    .select-search-option.active {
+      background: rgba(59, 130, 246, 0.2);
+      color: #f7fbff;
+    }
+
+    .select-search-option.selected {
+      color: #90cdf4;
+      font-weight: 700;
+    }
+
+    .select-search-empty {
+      color: var(--muted);
+    }
+
     .panel-hint {
       color: var(--muted);
       font-size: 12px;
@@ -2051,10 +2154,10 @@ function buildOilNoticeModel({ year, month, departmentRows }) {
   const periodLabel = `${month}月21日-${month === 12 ? 1 : month + 1}月20日`;
   const rows = departmentRows.map((row) => [
     row.department,
-    Number(row.fuelVolume).toFixed(1),
+    normalizeNumber(row.fuelVolume).toFixed(1),
     row.energyType || row.fuelType,
     row.energyMethod || "-",
-    Number(row.energy).toFixed(2),
+    normalizeNumber(row.energy).toFixed(2),
     formatPercent(row.mom, 2),
     formatPercent(row.yoy, 2),
     ""
@@ -3400,6 +3503,131 @@ function setSelectOptions(select, options, selectedValue) {
     const isSelected = String(value) === selected ? "selected" : "";
     return `<option value="${escapeHtml(value)}" ${isSelected}>${escapeHtml(label)}</option>`;
   }).join("");
+  enhanceSearchableSelect(select);
+  refreshSearchableSelect(select);
+}
+
+function enhanceSearchableSelect(select) {
+  if (!select || select.dataset.searchableEnhanced === "true") return;
+  select.dataset.searchableEnhanced = "true";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "searchable-select";
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(select);
+  select.classList.add("native-select");
+
+  const input = document.createElement("input");
+  input.className = "select-search-input";
+  input.type = "text";
+  input.autocomplete = "off";
+  input.placeholder = "输入关键字筛选";
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-expanded", "false");
+
+  const list = document.createElement("div");
+  list.className = "select-search-list";
+  list.setAttribute("role", "listbox");
+  wrapper.append(input, list);
+
+  if (document.body.dataset.searchableSelectClickHandler !== "true") {
+    document.body.dataset.searchableSelectClickHandler = "true";
+    document.addEventListener("click", (event) => {
+      if (event.target.closest(".searchable-select")) return;
+      document.querySelectorAll(".searchable-select.open").forEach((openWrapper) => {
+        openWrapper.classList.remove("open");
+        const openInput = openWrapper.querySelector(".select-search-input");
+        const openSelect = openWrapper.querySelector("select");
+        if (openInput && openSelect) {
+          openInput.value = openSelect.options[openSelect.selectedIndex]?.textContent ?? "";
+          openInput.setAttribute("aria-expanded", "false");
+        }
+      });
+    });
+  }
+
+  const close = () => {
+    wrapper.classList.remove("open");
+    input.value = select.options[select.selectedIndex]?.textContent ?? "";
+    input.setAttribute("aria-expanded", "false");
+  };
+
+  const open = () => {
+    wrapper.classList.add("open");
+    input.value = "";
+    input.setAttribute("aria-expanded", "true");
+    renderSearchableOptions(select, input.value);
+    input.focus();
+  };
+
+  input.addEventListener("focus", () => {
+    if (!wrapper.classList.contains("open")) open();
+  });
+  input.addEventListener("input", () => renderSearchableOptions(select, input.value));
+  input.addEventListener("keydown", (event) => {
+    const options = [...list.querySelectorAll(".select-search-option")];
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!options.length) return;
+      const current = options.findIndex((option) => option.classList.contains("active"));
+      const offset = event.key === "ArrowDown" ? 1 : -1;
+      const next = (current + offset + options.length) % options.length;
+      options.forEach((option, index) => option.classList.toggle("active", index === next));
+      options[next].scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (event.key === "Enter") {
+      const active = list.querySelector(".select-search-option.active") || options[0];
+      if (active) {
+        event.preventDefault();
+        selectSearchableOption(select, active.dataset.value);
+      }
+    }
+  });
+  select.addEventListener("change", () => close());
+  select._searchableRefresh = () => refreshSearchableSelect(select);
+}
+
+function refreshSearchableSelect(select) {
+  const input = select?.parentElement?.querySelector(".select-search-input");
+  if (!input) return;
+  input.value = select.options[select.selectedIndex]?.textContent ?? "";
+  input.setAttribute("aria-controls", `${select.id || "select"}-search-list`);
+  const list = select.parentElement.querySelector(".select-search-list");
+  if (list) {
+    list.id = `${select.id || "select"}-search-list`;
+    renderSearchableOptions(select, list.closest(".searchable-select").classList.contains("open") ? input.value : "");
+  }
+}
+
+function renderSearchableOptions(select, query) {
+  const wrapper = select.parentElement;
+  const list = wrapper?.querySelector(".select-search-list");
+  if (!list) return;
+  const normalizedQuery = String(query ?? "").trim().toLocaleLowerCase();
+  const options = [...select.options].filter((option) =>
+    option.textContent.toLocaleLowerCase().includes(normalizedQuery)
+  );
+  list.innerHTML = options.length
+    ? options.map((option) => `<button type="button" class="select-search-option${option.selected ? " selected" : ""}" data-value="${escapeHtml(option.value)}" role="option" aria-selected="${option.selected}">${escapeHtml(option.textContent)}</button>`).join("")
+    : `<div class="select-search-empty">未找到匹配项</div>`;
+  list.querySelectorAll(".select-search-option").forEach((option) => {
+    option.addEventListener("mousedown", (event) => event.preventDefault());
+    option.addEventListener("click", () => selectSearchableOption(select, option.dataset.value));
+  });
+}
+
+function selectSearchableOption(select, value) {
+  if (![...select.options].some((option) => option.value === value)) return;
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  select.parentElement?.querySelector(".select-search-input")?.blur();
 }
 
 function dedupeBy(rows, getKey) {
@@ -4103,10 +4331,13 @@ async function exportOilReport() {
 
 async function exportOilNotice() {
   const rows = filterDepartmentFuel(state.data.departmentFuel, state.filters.departmentFuelYear, state.filters.departmentFuelMonth);
+  // 通报中的能耗列与页面“能耗统计表”使用同一份 departmentEnergy 数据。
+  // departmentFuel 只包含加油量和燃料类型，直接用于导出会导致 energy 为 undefined，最终显示为 NaN。
+  const energyRows = filterDepartmentFuel(state.data.departmentEnergy ?? [], state.filters.departmentFuelYear, state.filters.departmentFuelMonth);
   const model = buildOilNoticeModel({
     year: state.filters.departmentFuelYear,
     month: state.filters.departmentFuelMonth,
-    departmentRows: rows
+    departmentRows: energyRows.length ? energyRows : rows
   });
   await downloadOilNoticeDocx(model);
 }
