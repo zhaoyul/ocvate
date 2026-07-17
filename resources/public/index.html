@@ -2147,7 +2147,7 @@ function buildVehicleFuelSeries(rows, year, selectedAssetCodes) {
   return { months, series };
 }
 
-function buildOilNoticeModel({ year, month, departmentRows }) {
+function buildOilNoticeModel({ year, month, filterSummary, departmentRows }) {
   const title = `${year}年${month}月集团公司各部门油耗情况的通报`;
   const gasoline = buildFuelTypeSummary(departmentRows, "汽油");
   const diesel = buildFuelTypeSummary(departmentRows, "柴油");
@@ -2165,6 +2165,7 @@ function buildOilNoticeModel({ year, month, departmentRows }) {
   return {
     title,
     filename: `${title}.docx`,
+    filterSummary,
     periodLabel,
     overview: `${year}年${month}月账期汽油消耗${formatNoticeVolume(gasoline.volume)}升，同比${formatRateChange(gasoline.yoy)}，环比${formatRateChange(gasoline.mom)}；柴油消耗${formatNoticeVolume(diesel.volume)}升，同比${formatRateChange(diesel.yoy)}，环比${formatRateChange(diesel.mom)}。`,
     period: `本月账期内（${periodLabel}）汽油、柴油消耗变化以导入数据同比、环比为准。主要原因是请结合当月实际运营情况补充。`,
@@ -3981,6 +3982,7 @@ function buildReportDocumentXml(model, sectionImages) {
       return `
         ${index === 0 ? "" : wordPageBreak()}
         ${wordParagraph(section.title, { bold: true, size: 28, after: 160 })}
+        ${section.filterSummary ? wordParagraph(`筛选条件：${section.filterSummary}`, { size: 20, after: 120 }) : ""}
         ${(section.paragraphs ?? []).map((paragraph) => wordParagraph(paragraph, { indent: 420 })).join("")}
         ${image ? `${wordParagraph(`${section.title}图表`, { align: "center", size: 18, after: 80 })}${wordImage(image.relId, section.title)}` : ""}
         ${section.table ? wordTable(section.table) : ""}
@@ -4023,6 +4025,7 @@ function buildOilNoticeDocumentXml(model) {
     ${wordParagraph(titlePrefix, { align: "center", bold: true, size: 32, after: 40 })}
     ${wordParagraph("油耗情况的通报", { align: "center", bold: true, size: 32, after: 420 })}
     ${wordParagraph("一、整体油耗概况", { bold: true, size: 28, after: 180 })}
+    ${model.filterSummary ? wordParagraph(`筛选条件：${model.filterSummary}`, { size: 20, after: 120 }) : ""}
     ${wordParagraph(model.overview, { indent: 420 })}
     ${wordParagraph(model.period, { indent: 420 })}
     ${wordParagraph("各部门油耗统计情况如下：", { indent: 420 })}
@@ -4272,8 +4275,14 @@ async function exportAssetReport() {
 async function exportRepairReport() {
   renderRepairsPage();
   const sections = [
-    sectionFromChart("单台设备维修维护费用分析", "singleRepair", tableCache.get("singleRepair").sheets["单台维修"]),
-    sectionFromChart("部门设备维修维护费用分析", "departmentRepair", tableCache.get("departmentRepair").sheets["部门维修"])
+    {
+      ...sectionFromChart("单台设备维修维护费用分析", "singleRepair", tableCache.get("singleRepair").sheets["单台维修"]),
+      filterSummary: `${state.filters.repairYear}年、设备：${state.filters.repairDevice || "全部设备"}`
+    },
+    {
+      ...sectionFromChart("部门设备维修维护费用分析", "departmentRepair", tableCache.get("departmentRepair").sheets["部门维修"]),
+      filterSummary: `${state.filters.departmentRepairYear}年、部门：${state.filters.repairDepartment || "全部部门"}`
+    }
   ];
   await downloadReportDocx("维修维护一张表报告.docx", {
     title: "维修维护一张表报告",
@@ -4295,11 +4304,15 @@ async function exportOutboundReport() {
     ? `${summaryRows[0].warehouseCode} ${summaryRows[0].warehouseName}`
     : state.filters.outboundWarehouse;
   const sections = [
-    sectionFromChart("出库分析柱状图表", "outbound", buildOutboundSummaryReportTable(summaryRows), [
+    {
+      ...sectionFromChart("出库分析柱状图表", "outbound", buildOutboundSummaryReportTable(summaryRows), [
       `当前筛选条件为${state.filters.outboundYear}年、${warehouseLabel}。图表和汇总表按部门维度展示出库金额、出库数量、同比和环比。`
-    ]),
+      ]),
+      filterSummary: `${state.filters.outboundYear}年、仓库：${warehouseLabel}`
+    },
     {
       title: "当前筛选范围出库明细表",
+      filterSummary: `${state.filters.outboundYear}年、仓库：${warehouseLabel}`,
       paragraphs: [
         `本表为${state.filters.outboundYear}年、${warehouseLabel}范围内的出库明细数据。`
       ],
@@ -4317,9 +4330,18 @@ async function exportOutboundReport() {
 async function exportOilReport() {
   renderFuelPage();
   const sections = [
-    sectionFromChart("月度加油总量柱状图", "monthlyFuel", tableCache.get("monthlyFuel").sheets["月度油耗"]),
-    sectionFromChart("各部门车辆油耗统计柱状图", "departmentFuel", tableCache.get("departmentFuel").sheets["油耗统计"]),
-    sectionFromChart("单车加油走势图", "vehicleFuel", tableCache.get("vehicleFuel").sheets["单车油耗"])
+    {
+      ...sectionFromChart("月度加油总量柱状图", "monthlyFuel", tableCache.get("monthlyFuel").sheets["月度油耗"]),
+      filterSummary: `${state.filters.fuelYear}年`
+    },
+    {
+      ...sectionFromChart("各部门车辆油耗统计柱状图", "departmentFuel", tableCache.get("departmentFuel").sheets["油耗统计"]),
+      filterSummary: `${state.filters.departmentFuelYear}年${state.filters.departmentFuelMonth}月`
+    },
+    {
+      ...sectionFromChart("单车加油走势图", "vehicleFuel", tableCache.get("vehicleFuel").sheets["单车油耗"]),
+      filterSummary: `${state.filters.fuelYear}年、车辆：${state.filters.selectedVehicles.length ? state.filters.selectedVehicles.join("、") : "全部车辆"}`
+    }
   ];
   await downloadReportDocx("油耗一张表报告.docx", {
     title: "油耗一张表报告",
@@ -4337,6 +4359,7 @@ async function exportOilNotice() {
   const model = buildOilNoticeModel({
     year: state.filters.departmentFuelYear,
     month: state.filters.departmentFuelMonth,
+    filterSummary: `${state.filters.departmentFuelYear}年${state.filters.departmentFuelMonth}月、部门：全部部门`,
     departmentRows: energyRows.length ? energyRows : rows
   });
   await downloadOilNoticeDocx(model);
@@ -4363,21 +4386,36 @@ function buildAssetBusinessReportModel() {
       ],
       table: [["指标", "当前值"], ...overviewRows]
     },
-    sectionFromChart("二、资产数量前十部门情况", "deptRank", tableCache.get("deptRank").sheets["报告完整数据"], [
-      "本模块展示资产数量排名前十部门，报告表格保留页面隐藏的闲置资产字段，并包含累计占比。"
-    ]),
-    sectionFromChart("三、不同盘点分类数量及价值占比", "assetType", tableCache.get("assetType").sheets["资产类型"], [
-      "本模块展示不同资产盘点分类的数量、价值及占比情况。"
-    ]),
-    sectionFromChart("四、实物资产折旧到期年限及价值统计", "depreciation", tableCache.get("depreciation").sheets["折旧到期"], [
-      `本模块按当前设备分类“${state.filters.depreciationCategory || "全部"}”导出折旧到期数量及原价值。`
-    ]),
-    sectionFromChart("五、资产年度增减数量价值汇总", "annualDynamics", tableCache.get("annualDynamics").sheets["年度动态"], [
-      "本模块展示年度新增和待处置资产的数量及价值变化。"
-    ]),
-    sectionFromChart("六、资产年度待处置、折旧及价值统计", "combinedAnnual", tableCache.get("combinedAnnual").sheets["合并统计"], [
-      `本模块合并展示待处置与折旧资产情况，当前待处置年度平移步长为${state.filters.pendingShift}年。`
-    ])
+    {
+      ...sectionFromChart("二、资产数量前十部门情况", "deptRank", tableCache.get("deptRank").sheets["报告完整数据"], [
+        "本模块展示资产数量排名前十部门，报告表格保留页面隐藏的闲置资产字段，并包含累计占比。"
+      ]),
+      filterSummary: "部门：全部部门"
+    },
+    {
+      ...sectionFromChart("三、不同盘点分类数量及价值占比", "assetType", tableCache.get("assetType").sheets["资产类型"], [
+        "本模块展示不同资产盘点分类的数量、价值及占比情况。"
+      ]),
+      filterSummary: "分类：全部分类"
+    },
+    {
+      ...sectionFromChart("四、实物资产折旧到期年限及价值统计", "depreciation", tableCache.get("depreciation").sheets["折旧到期"], [
+        `本模块按当前设备分类“${state.filters.depreciationCategory || "全部"}”导出折旧到期数量及原价值。`
+      ]),
+      filterSummary: `设备分类：${state.filters.depreciationCategory || "全部"}`
+    },
+    {
+      ...sectionFromChart("五、资产年度增减数量价值汇总", "annualDynamics", tableCache.get("annualDynamics").sheets["年度动态"], [
+        "本模块展示年度新增和待处置资产的数量及价值变化。"
+      ]),
+      filterSummary: "年度：全部年度"
+    },
+    {
+      ...sectionFromChart("六、资产年度待处置、折旧及价值统计", "combinedAnnual", tableCache.get("combinedAnnual").sheets["合并统计"], [
+        `本模块合并展示待处置与折旧资产情况，当前待处置年度平移步长为${state.filters.pendingShift}年。`
+      ]),
+      filterSummary: `待处置年度平移：${state.filters.pendingShift}年`
+    }
   ];
   return {
     title,
