@@ -53,13 +53,41 @@
   (json-response {:ok true :data data}))
 
 (defn- err [msg]
-  (json-response {:ok false :error msg})) (def ^:private access-key
-  "固定访问密钥：主系统跳转时附加在 ?key= 后。"
-  "69a09523e8ef7f221db62df835a6998781a10c9aee973d671cbd124409fc5c4e") (def ^:private access-cookie
-  "通过 key 校验后写入的会话 Cookie 值。"
-  "ocvate-authorized") (defn- authorized? [req]
-  (= (get-in req [:cookies "ocvate_access" :value]) access-cookie)) (defn- access-gate
-  "生产环境要求固定 key；SQLite 开发环境直接放行。成功后只清除 URL 中的 key。"
+  (json-response {:ok false :error msg}))
+
+(def ^:private default-session-ttl-ms (* 3 60 60 1000))
+(defonce ^:private sessions (atom {}))
+
+(defn- issue-session! []
+  (let [now (System/currentTimeMillis)
+        session-ttl-ms (get (cfg/auth-config) :session-ttl-ms default-session-ttl-ms)
+        token (str (java.util.UUID/randomUUID))
+        expires-at (+ now session-ttl-ms)]
+    (swap! sessions (fn [active]
+                      (assoc (into {}
+                                   (remove (fn [[_ expiry]] (<= expiry now)) active))
+                             token
+                             expires-at)))
+    {:token token :expires-at expires-at :ttl-ms session-ttl-ms}))
+
+(defn- authorized? [req]
+  (let [token (get-in req [:cookies "ocvate_access" :value])
+        expires-at (get @sessions token)]
+    (and expires-at
+         (> expires-at (System/currentTimeMillis)))))
+
+(defn- expired-session-response [req]
+  (if (clojure.string/starts-with? (or (:uri req) "") "/api/")
+    (-> (json-response {:ok false
+                        :error "SESSION_EXPIRED"
+                        :message "已离线，请重新登录或重新创建连接。"})
+        (resp/status 401))
+    (-> (resp/response "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><title>连接已离线</title><style>html,body{margin:0;min-height:100%;background:#07101d;color:#eef2ff;font-family:Microsoft YaHei,Segoe UI,sans-serif}body{min-height:100vh;display:grid;place-items:center;overflow:hidden}body:before{content:\"\";position:fixed;inset:0;opacity:.28;background-image:linear-gradient(rgba(144,205,244,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(144,205,244,.035) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}.offline{text-align:center;position:relative;z-index:1}.offline-mark{width:54px;height:54px;margin:0 auto 22px;border:1px solid rgba(144,205,244,.32);border-radius:16px;display:grid;place-items:center;color:#90cdf4;font-size:25px;background:rgba(15,29,50,.72);box-shadow:0 0 30px rgba(59,130,246,.12)}h1{font-size:24px;letter-spacing:2px;margin:0 0 14px}p{margin:0;color:#9eb4da;font-size:14px}</style><body><main class=\"offline\"><div class=\"offline-mark\">⌁</div><h1>已离线</h1><p>连接已过期，请重新登录或重新创建连接。</p></main></body></html>")
+        (resp/status 401)
+        (resp/content-type "text/html; charset=utf-8"))))
+
+(defn- access-gate
+  "按配置要求固定 key；会话为随机 token，绝对有效期 3 小时。"
   [handler]
   (fn [req]
     (let [uri (or (:uri req) "/")
@@ -70,20 +98,29 @@
           redirect-uri (if (seq query-without-key)
                          (str uri "?" query-without-key)
                          uri)
-          access-enabled? (= "oracle" (:dbtype (cfg/db-config)))
+          auth-config (cfg/auth-config)
+          auth-enabled? (not= false (:enabled auth-config))
+          access-key (or (:access-key auth-config) "")
           health? (= uri "/api/health")
-          page-entry? (and (= supplied-key access-key)
+        page-entry? (and (= supplied-key access-key)
                            (not (clojure.string/starts-with? uri "/api/")))]
       (cond
-        (not access-enabled?) (handler req)
+        ;; 无论当前是否已有会话，只要页面 URL 携带 key，就先清理地址栏中的敏感参数。
+        (and page-entry? (authorized? req))
+        (resp/redirect redirect-uri)
+        (not auth-enabled?) (handler req)
         (authorized? req) (handler req)
         health? (handler req)
-        page-entry? (-> (resp/redirect redirect-uri)
-                        (resp/set-cookie "ocvate_access" access-cookie
-                                          {:http-only true :same-site :lax :max-age 28800}))
-        :else (-> (resp/response "无访问权限")
-                  (resp/status 403)
-                  (resp/content-type "text/plain; charset=utf-8"))))))
+        page-entry? (let [{:keys [token expires-at ttl-ms]} (issue-session!)]
+                      (-> (resp/redirect redirect-uri)
+                          (resp/set-cookie "ocvate_access" token
+                                            {:http-only true :same-site :lax
+                                             :max-age (long (/ ttl-ms 1000))})
+                          ;; 只暴露过期时间，不暴露会话 token，供前端锁屏计时使用。
+                          (resp/set-cookie "ocvate_session_expires_at" (str expires-at)
+                                            {:http-only false :same-site :lax
+                                             :max-age (long (/ ttl-ms 1000))})))
+        :else (expired-session-response req)))))
 
 ;; ─── 健康检查 ───
 

@@ -11,4 +11,8 @@
  ;; 视图名配置（仅 Oracle 生效，SQLite 固定使用默认表名）
  :views {}
 
+ :auth {:enabled true
+        :access-key "123"
+        :session-ttl-ms 10800000}
+
  :server {:port 8080}}

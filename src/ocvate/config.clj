@@ -47,6 +47,11 @@
   []
   (get (config) :server))
 
+(defn auth-config
+  "获取访问鉴权配置。"
+  []
+  (get (config) :auth {}))
+
 (defn view-name
   "获取视图/表名。\n   - SQLite 始终使用默认表名（测试表 DDL 固定）。\n   - Oracle 允许 config 中 :views 段覆盖。"
   ([k] (view-name (keyword (or (:dbtype (db-config)) "oracle")) k))

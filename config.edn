@@ -47,6 +47,11 @@
          :assetInventory     "EAMPROD.u5_fu_zppdqd01"
          :assetTransfer      "EAMPROD.u5_fu_zpzyqdmx01"}
 
+ :auth
+ {:enabled true
+  :access-key "69a09523e8ef7f221db62df835a6998781a10c9aee973d671cbd124409fc5c4e"
+  :session-ttl-ms 10800000}
+
  :server
  {:port 8080                    ;; Web 服务器监听端口
   :static-root "public"}        ;; 静态资源根目录(相对于 resources/)

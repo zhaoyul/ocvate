@@ -2383,12 +2383,15 @@ function createDefaultData() {
   ].map(([year, month, fuelVolume]) => ({ year, month, fuelVolume }));
 
   const departmentFuel = [
-    [2026, 6, "飞行区管理部", "汽油", 6040.7, 0.3445, "汽油", "百公里", 13.77, 0.0412, 0.0412],
-    [2026, 6, "动力能源部", "柴油", 2450.4, 0.1398, "柴油", "台班", 11.22, -0.018, 0.033],
-    [2026, 6, "航站区管理部", "汽油", 3100.2, 0.1769, "汽油", "百公里", 12.91, 0.021, 0.052],
-    [2026, 6, "公共区管理部", "柴油", 2890.1, 0.1649, "柴油", "台班", 10.44, 0.038, -0.014],
-    [2026, 6, "机务维修公司", "柴油", 1453.5, 0.0829, "柴油", "台班", 9.66, 0.012, 0.027],
-    [2026, 6, "办公室", "汽油", 1736.0, 0.0991, "汽油", "百公里", 8.92, -0.011, 0.019],
+    [2026, 6, "飞行区管理部", "汽油", 6040.7, 0.3040, "汽油", "百公里", 13.77, 0.0412, 0.0412],
+    [2026, 6, "动力能源部", "柴油", 2450.4, 0.1233, "柴油", "台班", 11.22, -0.018, 0.033],
+    [2026, 6, "航站区管理部", "汽油", 3100.2, 0.1560, "汽油", "百公里", 12.91, 0.021, 0.052],
+    [2026, 6, "公共区管理部", "柴油", 2890.1, 0.1454, "柴油", "台班", 10.44, 0.038, -0.014],
+    [2026, 6, "机务维修公司", "柴油", 1453.5, 0.0731, "柴油", "台班", 9.66, 0.012, 0.027],
+    [2026, 6, "办公室", "汽油", 1736.0, 0.0874, "汽油", "百公里", 8.92, -0.011, 0.019],
+    [2026, 6, "飞行区管理部", "95#汽油", 980.0, 0.0493, "汽油", "百公里", 12.48, 0.018, 0.029],
+    [2026, 6, "动力能源部", "0#柴油", 720.0, 0.0362, "柴油", "台班", 10.86, 0.011, 0.021],
+    [2026, 6, "航站区管理部", "LNG天然气", 500.0, 0.0252, "天然气", "百公里", 7.85, 0.009, 0.016],
     [2026, 5, "飞行区管理部", "汽油", 5810.2, 0.331, "汽油", "百公里", 13.14, 0.018, 0.031],
     [2026, 5, "动力能源部", "柴油", 2310.9, 0.132, "柴油", "台班", 10.98, -0.009, 0.023]
   ].map(([year, month, department, fuelType, fuelVolume, totalRatio, energyType, energyMethod, energy, mom, yoy]) => ({
@@ -2540,6 +2543,7 @@ const state = {
   detailRows: [],
   detailTitle: "",
   pendingModuleImportKey: "",
+  sessionExpired: false,
   filters: {
     depreciationCategory: "全部",
     pendingShift: 0,
@@ -2647,6 +2651,8 @@ async function init() {
     if (status) status.textContent = "ECharts 未加载，请确认网络或本地依赖。";
     return;
   }
+  // 由服务端下发绝对过期时间；接口 401 仍是最终判定。
+  scheduleSessionExpiry();
   applyPageAccessFromUrl();
   bindGlobalEvents();
   renderModuleImportMenus();
@@ -2655,7 +2661,7 @@ async function init() {
 
   // 尝试从后端 API 加载数据，覆盖硬编码默认值
   try {
-    const resp = await fetch("/api/all");
+    const resp = await fetchApi("/api/all");
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const result = await resp.json();
     if (result.ok && result.data) {
@@ -2664,9 +2670,53 @@ async function init() {
       renderActivePage();
       setTimeout(resizeCharts, 80);
     }
-  } catch (_) {
-    // 后端不可用时静默回退到硬编码数据
+  } catch (error) {
+    if (error.sessionExpired) return;
+    // 后端暂时不可用时保留页面结构，但不再把它当作最新数据。
   }
+}
+
+function scheduleSessionExpiry() {
+  const match = document.cookie.match(/(?:^|;\s*)ocvate_session_expires_at=(\d+)/);
+  if (!match) return;
+  const delay = Math.max(0, Number(match[1]) - Date.now());
+  window.setTimeout(handleSessionExpired, delay);
+}
+
+function handleSessionExpired() {
+  if (state.sessionExpired) return;
+  state.sessionExpired = true;
+  alert("已离线，请重新登录或重新创建连接。");
+  const overlay = document.createElement("div");
+  overlay.id = "sessionExpiredOverlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div style="position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:rgba(3,9,19,.78);backdrop-filter:blur(7px);font-family:Microsoft YaHei,Segoe UI,sans-serif;color:#eef2ff">
+      <section style="text-align:center;padding:32px 40px;min-width:300px;border:1px solid rgba(144,205,244,.2);border-radius:18px;background:rgba(8,17,31,.92);box-shadow:0 20px 70px rgba(0,0,0,.45)">
+        <div style="width:54px;height:54px;margin:0 auto 18px;border:1px solid rgba(144,205,244,.32);border-radius:16px;display:grid;place-items:center;color:#90cdf4;font-size:25px;background:rgba(15,29,50,.72)">⌁</div>
+        <h2 style="margin:0 0 12px;font-size:24px;letter-spacing:2px">已离线</h2>
+        <p style="margin:0;color:#9eb4da;font-size:14px">连接已过期，请重新登录或重新创建连接。</p>
+      </section>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function fetchApi(input, init) {
+  if (state.sessionExpired) {
+    handleSessionExpired();
+    const error = new Error("SESSION_EXPIRED");
+    error.sessionExpired = true;
+    throw error;
+  }
+  const response = await fetch(input, init);
+  if (response.status === 401) {
+    handleSessionExpired();
+    const error = new Error("SESSION_EXPIRED");
+    error.sessionExpired = true;
+    throw error;
+  }
+  return response;
 }
 
 function applyPageAccessFromUrl() {
@@ -2738,6 +2788,14 @@ function bindGlobalEvents() {
   $("#downloadAssetDisposalBtn").addEventListener("click", () => downloadAssetDetailCsv("disposal"));
   $("#downloadAssetInventoryBtn").addEventListener("click", () => downloadAssetDetailCsv("inventory"));
   $("#downloadAssetTransferBtn").addEventListener("click", () => downloadAssetDetailCsv("transfer"));
+
+  document.addEventListener("click", (event) => {
+    if (!state.sessionExpired) return;
+    if (!event.target.closest("button, a, input, select, [role=button]")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    handleSessionExpired();
+  }, true);
 
   document.addEventListener("click", (event) => {
     const downloadTemplateButton = event.target.closest("[data-template-download]");
@@ -3320,6 +3378,30 @@ function renderDepartmentFuel() {
   const ratioData = departments.map((department) => rows
     .filter((row) => row.department === department)
     .reduce((sum, row) => sum + row.totalRatio, 0));
+  const fuelTypeBarGradients = new Map();
+  const usedFuelColorKeys = new Set();
+  fuelTypes.forEach((fuelType, index) => {
+    const normalizedFuelType = fuelType.replace(/\s/g, "");
+    const knownColor = /0#?柴油/.test(normalizedFuelType)
+      ? ["diesel-zero", "#67e8f9", "#0891b2"]
+      : /92#?汽油/.test(normalizedFuelType) || normalizedFuelType === "汽油"
+        ? ["gasoline-blue", "#90cdf4", "#2563eb"]
+      : /95#?汽油/.test(normalizedFuelType)
+        ? ["gasoline-purple", "#a5b4fc", "#6366f1"]
+        : normalizedFuelType === "柴油"
+          ? ["diesel-orange", "#ffd166", "#c87916"]
+          : null;
+    const colorKey = knownColor && !usedFuelColorKeys.has(knownColor[0])
+      ? knownColor[0]
+      : `generated-${index}`;
+    usedFuelColorKeys.add(colorKey);
+    if (knownColor && colorKey === knownColor[0]) {
+      fuelTypeBarGradients.set(fuelType, barGradient(knownColor[1], knownColor[2]));
+    } else {
+      const hue = ((index + 1) * 137.508) % 360;
+      fuelTypeBarGradients.set(fuelType, barGradient(`hsl(${hue}, 85%, 68%)`, `hsl(${hue}, 80%, 42%)`));
+    }
+  });
   setChart("departmentFuel", "chartDepartmentFuel", {
     ...baseChartOption,
     legend: { data: [...fuelTypes, "总占比"], textStyle: { color: "#cbd5e6" } },
@@ -3339,7 +3421,10 @@ function renderDepartmentFuel() {
         name: fuelType,
         type: "bar",
         data: departments.map((department) => rows.filter((row) => row.department === department && row.fuelType === fuelType).reduce((sum, row) => sum + row.fuelVolume, 0)),
-        itemStyle: { color: index === 0 ? barGradient("#90cdf4", "#2563eb") : barGradient("#ffd166", "#c87916"), borderRadius: [4, 4, 0, 0] },
+        itemStyle: {
+          color: fuelTypeBarGradients.get(fuelType),
+          borderRadius: [4, 4, 0, 0]
+        },
         label: chartValueLabel({ formatter: (params) => params.value ? formatNumber(params.value, 0) : "" })
       })),
       {
@@ -3911,13 +3996,13 @@ async function downloadAssetDetailCsv(type) {
   const button = document.querySelector(`#downloadAsset${type[0].toUpperCase()}${type.slice(1)}Btn`);
   if (button) button.disabled = true;
   try {
-    const response = await fetch(`${config.endpoint}?${params.toString()}`);
+    const response = await fetchApi(`${config.endpoint}?${params.toString()}`);
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
     const rows = Array.isArray(result.data) ? result.data : [];
     downloadCsv(config.filename, config.columns.map(([label]) => label), rows.map((row) => config.columns.map(([, key]) => row[key])));
   } catch (error) {
-    alert(`明细下载失败：${error.message}`);
+    if (!error.sessionExpired) alert(`明细下载失败：${error.message}`);
   } finally {
     if (button) button.disabled = false;
   }
@@ -4490,7 +4575,7 @@ function captureChartForReport(key) {
     height: REPORT_CHART_HEIGHT
   });
   try {
-    reportChart.setOption(buildReportChartOption(original), true);
+    reportChart.setOption(buildReportChartOption(original, key === "departmentFuel"), true);
     reportChart.resize({ width: REPORT_CHART_WIDTH, height: REPORT_CHART_HEIGHT });
     return reportChart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
   } finally {
@@ -4499,7 +4584,7 @@ function captureChartForReport(key) {
   }
 }
 
-function buildReportChartOption(option) {
+function buildReportChartOption(option, preserveSeriesColors = false) {
   const legends = toArray(option.legend);
   const xAxes = toArray(option.xAxis);
   const yAxes = toArray(option.yAxis);
@@ -4530,27 +4615,34 @@ function buildReportChartOption(option) {
       textStyle: { ...(zoom.textStyle ?? {}), color: "#111111" },
       borderColor: "#999999"
     })),
-    series: series.map((seriesItem, index) => ({
-      ...seriesItem,
-      itemStyle: {
-        ...(seriesItem.itemStyle ?? {}),
-        color: reportSeriesColor(seriesItem, index),
-        borderRadius: seriesItem.type === "bar" ? [3, 3, 0, 0] : seriesItem.itemStyle?.borderRadius
-      },
-      barMinWidth: seriesItem.type === "bar" ? 4 : seriesItem.barMinWidth,
-      barMaxWidth: seriesItem.type === "bar" ? 34 : seriesItem.barMaxWidth,
-      lineStyle: {
-        ...(seriesItem.lineStyle ?? {}),
-        color: seriesItem.type === "line" ? reportSeriesColor(seriesItem, index) : seriesItem.lineStyle?.color
-      },
-      label: {
-        ...(seriesItem.label ?? {}),
-        color: "#111111",
-        backgroundColor: "rgba(255,255,255,0.92)",
-        borderColor: "#777777",
-        textBorderWidth: 0
-      }
-    }))
+    series: series.map((seriesItem, index) => {
+      const seriesColor = preserveSeriesColors
+        ? (seriesItem.type === "line" ? seriesItem.lineStyle?.color : seriesItem.itemStyle?.color)
+        : reportSeriesColor(seriesItem, index);
+      return {
+        ...seriesItem,
+        itemStyle: {
+          ...(seriesItem.itemStyle ?? {}),
+          color: seriesColor ?? reportSeriesColor(seriesItem, index),
+          borderRadius: seriesItem.type === "bar" ? [3, 3, 0, 0] : seriesItem.itemStyle?.borderRadius
+        },
+        barMinWidth: seriesItem.type === "bar" ? 4 : seriesItem.barMinWidth,
+        barMaxWidth: seriesItem.type === "bar" ? 34 : seriesItem.barMaxWidth,
+        lineStyle: {
+          ...(seriesItem.lineStyle ?? {}),
+          color: seriesItem.type === "line"
+            ? (seriesColor ?? reportSeriesColor(seriesItem, index))
+            : seriesItem.lineStyle?.color
+        },
+        label: {
+          ...(seriesItem.label ?? {}),
+          color: "#111111",
+          backgroundColor: "rgba(255,255,255,0.92)",
+          borderColor: "#777777",
+          textBorderWidth: 0
+        }
+      };
+    })
   };
 }
 
